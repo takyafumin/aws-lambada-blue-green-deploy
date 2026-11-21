@@ -51,6 +51,94 @@ green(新バージョン)への直接invokeがDBへの書き込みなど外部�
 
 `live` エイリアスはSAMテンプレート(CloudFormation)では管理せず、CLIのみで作成・更新する方針のため、スタックの削除・再作成を行ってもエイリアスの向き先はIaC側では復元されない(IaC外の状態としてドリフトする)。スタックを再作成した場合は、エイリアスの再作成・再設定が必要になることを認識しておく。
 
+## システム構成図
+
+```mermaid
+flowchart LR
+    Dev["開発者"]
+
+    subgraph IaC["SAM / CloudFormation"]
+        FN["Lambda関数本体<br/>($LATEST のコード)"]
+    end
+
+    subgraph CLIBox["AWS CLI(手動実行)"]
+        PV["publish-version"]
+        INV["invoke(バージョン指定)"]
+        UA["update-alias"]
+    end
+
+    subgraph LambdaBox["Lambda関数のバージョン/エイリアス"]
+        V1["Version 1 (blue)"]
+        V2["Version 2 (green)"]
+        ALIAS["Alias: live"]
+    end
+
+    Caller["呼び出し元<br/>(API Gateway / テストクライアント)"]
+
+    Dev -->|"sam deploy"| FN
+    FN --> V1
+    FN --> V2
+    Dev -->|実行| PV
+    PV -->|"発行"| V1
+    PV -->|"発行"| V2
+    Dev -->|実行| INV
+    INV -. "裏から直接テスト" .-> V2
+    Dev -->|実行| UA
+    UA -->|"blue→green 切替"| ALIAS
+    ALIAS -->|"現在の向き先"| V1
+    Caller -->|"liveエイリアス経由"| ALIAS
+```
+
+- `live` エイリアスはSAM管理外で、AWS CLIからのみ作成・更新する(前述「エイリアスの状態管理について」)
+- 呼び出し元は常に `live` エイリアス経由でアクセスし、裏側のバージョン切替を意識しない
+- green検証時のみ、エイリアスを経由せずバージョン番号を直接指定してinvokeする
+
+## デプロイ/Blue-Green切替のイメージ
+
+### デプロイ〜検証〜切替のシーケンス
+
+```mermaid
+sequenceDiagram
+    participant Dev as 開発者
+    participant SAM as SAM CLI
+    participant CLI as AWS CLI
+    participant Lambda as Lambda関数
+    participant Caller as 呼び出し元
+
+    Dev->>SAM: sam deploy
+    SAM->>Lambda: $LATEST のコードを更新
+    Dev->>CLI: publish-version
+    CLI->>Lambda: Version 2 (green) を発行
+    Dev->>CLI: invoke (version指定)
+    CLI->>Lambda: green を直接invoke(裏でテスト)
+    Lambda-->>CLI: テスト結果
+    Note over Dev: 結果を確認しOKと判断
+    Dev->>CLI: update-alias (function-version=2)
+    CLI->>Lambda: live エイリアスを green へ切替
+    Caller->>Lambda: live 経由で呼び出し(以降green応答)
+```
+
+### 切替前後のイメージ
+
+切替前(blueが稼働中。greenは裏で検証のみ):
+
+```mermaid
+flowchart LR
+    Caller1["呼び出し元"] -->|live| Alias1["Alias: live"]
+    Alias1 --> V1a["Version 1 (blue) ★稼働中"]
+    V2a["Version 2 (green) 検証用"]
+    CLI1["AWS CLI: invoke(version指定)"] -. 直接テスト .-> V2a
+```
+
+切替後(update-aliasでgreenへ一括切替。blueはロールバック用に保持):
+
+```mermaid
+flowchart LR
+    Caller2["呼び出し元"] -->|live| Alias2["Alias: live"]
+    Alias2 --> V2b["Version 2 (green) ★稼働中"]
+    V1b["Version 1 (blue) 旧バージョン(ロールバック用に保持)"]
+```
+
 ## ランタイムについて
 
 Node.js 26を希望しているが、Lambdaの対応ランタイム一覧に存在するかは実装直前にAWSコンソール/ドキュメントで確認する。存在しない場合は、その時点でLambdaがサポートしている最新のNode.jsランタイムにフォールバックする。
@@ -74,6 +162,7 @@ docs/RUNBOOK.md              # 初回構築〜デプロイ〜検証〜切替〜�
 ## TODO
 
 - [x] 計画・設計をドキュメント化してコミットする(このドキュメント)
+- [x] システム構成図・デプロイ/切替イメージ図をドキュメントに追加する
 - [ ] Lambdaの対応ランタイム一覧でNode.jsの利用可能バージョンを確認する
 - [ ] ローカルのAWS認証情報(プロファイル)がSAM/CLIから使えることを確認する
 - [ ] 本体Lambda(`src/main/index.mjs`)を実装する。バージョンが見分けられる応答を返すようにする
