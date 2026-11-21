@@ -53,22 +53,17 @@ green(新バージョン)への直接invokeがDBへの書き込みなど外部�
 
 ## システム構成図
 
+誰が何を操作するかだけを示す図。Lambda関数の中(Version/Aliasの詳細)は次の「Lambda関数・Version・Aliasの関係」の図を参照。
+
 ```mermaid
 flowchart LR
-    Dev["開発者"]
+    Dev["開発者"] -->|"sam deploy"| SAM["SAM CLI"]
+    Dev -->|"publish-version<br/>invoke<br/>update-alias"| CLI["AWS CLI"]
 
-    Dev -->|"sam deploy"| SAM["SAM CLI"]
-    Dev -->|"publish-version / invoke / update-alias"| CLI["AWS CLI"]
-    Caller["呼び出し元<br/>(API Gateway /<br/>テストクライアント)"] -->|"live経由"| ALIAS
+    SAM -->|"コード更新"| FN["Lambda関数"]
+    CLI -->|"バージョン発行・<br/>検証・切替"| FN
 
-    SAM -->|"$LATEST 更新"| FN["Lambda関数"]
-    CLI -->|"publish-version"| FN
-    CLI -->|"update-alias"| ALIAS["Alias: live"]
-    CLI -. "直接invoke<br/>裏でテスト" .-> V2
-
-    FN --> V1["Version 1 (blue)"]
-    FN --> V2["Version 2 (green)"]
-    ALIAS --> V1
+    Caller["呼び出し元"] -->|"live経由で呼び出し"| FN
 ```
 
 - `live` エイリアスはSAM管理外で、AWS CLIからのみ作成・更新する(前述「エイリアスの状態管理について」)
