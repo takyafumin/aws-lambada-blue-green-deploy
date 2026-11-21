@@ -63,7 +63,7 @@ flowchart LR
     SAM -->|"コード更新"| FN["Lambda関数"]
     CLI -->|"バージョン発行・<br/>検証・切替"| FN
 
-    Caller["呼び出し元"] -->|"live経由で呼び出し"| FN
+    Caller["呼び出し元"] -->|"呼び出し"| ALIAS["Alias: live"] --> FN
 ```
 
 - `live` エイリアスはSAM管理外で、AWS CLIからのみ作成・更新する(前述「エイリアスの状態管理について」)
