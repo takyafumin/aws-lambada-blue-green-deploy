@@ -54,39 +54,23 @@ green(新バージョン)への直接invokeがDBへの書き込みなど外部�
 ## システム構成図
 
 ```mermaid
-flowchart LR
+flowchart TD
     Dev["開発者"]
-
-    subgraph IaC["SAM / CloudFormation"]
-        FN["Lambda関数本体<br/>($LATEST のコード)"]
-    end
-
-    subgraph CLIBox["AWS CLI(手動実行)"]
-        PV["publish-version"]
-        INV["invoke(バージョン指定)"]
-        UA["update-alias"]
-    end
-
-    subgraph LambdaBox["Lambda関数のバージョン/エイリアス"]
-        V1["Version 1 (blue)"]
-        V2["Version 2 (green)"]
-        ALIAS["Alias: live"]
-    end
-
     Caller["呼び出し元<br/>(API Gateway / テストクライアント)"]
 
-    Dev -->|"sam deploy"| FN
-    FN --> V1
-    FN --> V2
-    Dev -->|実行| PV
-    PV -->|"発行"| V1
-    PV -->|"発行"| V2
-    Dev -->|実行| INV
-    INV -. "裏から直接テスト" .-> V2
-    Dev -->|実行| UA
-    UA -->|"blue→green 切替"| ALIAS
-    ALIAS -->|"現在の向き先"| V1
-    Caller -->|"liveエイリアス経由"| ALIAS
+    Dev -->|"sam deploy"| SAM["SAM CLI"]
+    Dev -->|"publish-version / invoke / update-alias"| CLI["AWS CLI"]
+
+    SAM -->|"$LATEST 更新"| FN["Lambda関数"]
+    CLI -->|"publish-version"| FN
+    FN --> V1["Version 1 (blue)"]
+    FN --> V2["Version 2 (green)"]
+
+    CLI -. "直接invoke・裏でテスト" .-> V2
+    CLI -->|"update-alias"| ALIAS["Alias: live"]
+    ALIAS --> V1
+
+    Caller -->|"live経由"| ALIAS
 ```
 
 - `live` エイリアスはSAM管理外で、AWS CLIからのみ作成・更新する(前述「エイリアスの状態管理について」)
@@ -123,20 +107,19 @@ sequenceDiagram
 切替前(blueが稼働中。greenは裏で検証のみ):
 
 ```mermaid
-flowchart LR
+flowchart TD
     Caller1["呼び出し元"] -->|live| Alias1["Alias: live"]
-    Alias1 --> V1a["Version 1 (blue) ★稼働中"]
-    V2a["Version 2 (green) 検証用"]
-    CLI1["AWS CLI: invoke(version指定)"] -. 直接テスト .-> V2a
+    Alias1 --> V1a["Version 1 (blue)<br/>★稼働中"]
+    CLI1["AWS CLI"] -. "直接テスト" .-> V2a["Version 2 (green)<br/>検証用"]
 ```
 
 切替後(update-aliasでgreenへ一括切替。blueはロールバック用に保持):
 
 ```mermaid
-flowchart LR
+flowchart TD
     Caller2["呼び出し元"] -->|live| Alias2["Alias: live"]
-    Alias2 --> V2b["Version 2 (green) ★稼働中"]
-    V1b["Version 1 (blue) 旧バージョン(ロールバック用に保持)"]
+    Alias2 --> V2b["Version 2 (green)<br/>★稼働中"]
+    V1b["Version 1 (blue)<br/>旧バージョン(ロールバック用に保持)"]
 ```
 
 ## ランタイムについて
