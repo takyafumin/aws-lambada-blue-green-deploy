@@ -54,28 +54,50 @@ green(新バージョン)への直接invokeがDBへの書き込みなど外部�
 ## システム構成図
 
 ```mermaid
-flowchart TD
+flowchart LR
     Dev["開発者"]
-    Caller["呼び出し元<br/>(API Gateway / テストクライアント)"]
 
     Dev -->|"sam deploy"| SAM["SAM CLI"]
     Dev -->|"publish-version / invoke / update-alias"| CLI["AWS CLI"]
+    Caller["呼び出し元<br/>(API Gateway /<br/>テストクライアント)"] -->|"live経由"| ALIAS
 
     SAM -->|"$LATEST 更新"| FN["Lambda関数"]
     CLI -->|"publish-version"| FN
+    CLI -->|"update-alias"| ALIAS["Alias: live"]
+    CLI -. "直接invoke<br/>裏でテスト" .-> V2
+
     FN --> V1["Version 1 (blue)"]
     FN --> V2["Version 2 (green)"]
-
-    CLI -. "直接invoke・裏でテスト" .-> V2
-    CLI -->|"update-alias"| ALIAS["Alias: live"]
     ALIAS --> V1
-
-    Caller -->|"live経由"| ALIAS
 ```
 
 - `live` エイリアスはSAM管理外で、AWS CLIからのみ作成・更新する(前述「エイリアスの状態管理について」)
 - 呼び出し元は常に `live` エイリアス経由でアクセスし、裏側のバージョン切替を意識しない
 - green検証時のみ、エイリアスを経由せずバージョン番号を直接指定してinvokeする
+
+### Lambda関数・Version・Aliasの関係(Blue/Greenの実体)
+
+「Lambda関数」「Version」「Alias」の関係が上の図だけだと分かりにくいため、この3者だけを抜き出して描いたのが以下の図。Blue/Greenデプロイが実際に何をしているかは、この図の①→②がそのものである。
+
+```mermaid
+flowchart LR
+    subgraph FN["Lambda関数(1つだけ存在)"]
+        direction TB
+        V1["Version 1 (blue)<br/>不変"]
+        V2["Version 2 (green)<br/>不変"]
+    end
+
+    ALIAS["Alias: live<br/>(可変なのはここだけ)"]
+    ALIAS -->|"①デプロイ直後はblueを指す"| V1
+    ALIAS -.->|"②update-aliasでgreenへ切替"| V2
+
+    Caller["呼び出し元"] -->|"常にlive経由で呼び出す"| ALIAS
+```
+
+- Lambda関数自体は1つしか存在しない。コードを変更して `publish-version` するたびに、不変な「Version」(blue, greenは呼びやすくするための俗称で、実体はVersion番号)が増えていく
+- 可変なのは `live` というAliasが「どのVersionを指しているか」だけ。VersionやLambda関数そのものは切替の前後で変化しない
+- Blue/Greenデプロイ = Aliasの向き先をVersion1からVersion2へ一括で切り替える操作そのもの(①→②)。重み付けではなく、ある瞬間に100%が新Versionへ切り替わる
+- 呼び出し元は常にAlias経由でアクセスするため、向き先が変わったことを意識せず新バージョンの応答を受け取るようになる
 
 ## デプロイ/Blue-Green切替のイメージ
 
@@ -102,25 +124,7 @@ sequenceDiagram
     Caller->>Lambda: live 経由で呼び出し(以降green応答)
 ```
 
-### 切替前後のイメージ
-
-切替前(blueが稼働中。greenは裏で検証のみ):
-
-```mermaid
-flowchart TD
-    Caller1["呼び出し元"] -->|live| Alias1["Alias: live"]
-    Alias1 --> V1a["Version 1 (blue)<br/>★稼働中"]
-    CLI1["AWS CLI"] -. "直接テスト" .-> V2a["Version 2 (green)<br/>検証用"]
-```
-
-切替後(update-aliasでgreenへ一括切替。blueはロールバック用に保持):
-
-```mermaid
-flowchart TD
-    Caller2["呼び出し元"] -->|live| Alias2["Alias: live"]
-    Alias2 --> V2b["Version 2 (green)<br/>★稼働中"]
-    V1b["Version 1 (blue)<br/>旧バージョン(ロールバック用に保持)"]
-```
+切替前後の状態の違いは、前述の「Lambda関数・Version・Aliasの関係」の図の①(切替前)・②(切替後)に対応する。
 
 ## ランタイムについて
 
