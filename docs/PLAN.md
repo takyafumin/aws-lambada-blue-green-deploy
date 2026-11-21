@@ -18,19 +18,21 @@ SAMの `AutoPublishAlias` だけでは、デプロイ時に自動でエイリア
 
 ### 役割分担
 
+以下のコマンド例中の `MyFunction` は実際のLambda関数名に置き換える前提のプレースホルダー。
+
 | 役割 | 手段 |
 | --- | --- |
 | 関数コードのデプロイ(`$LATEST` 更新) | SAM (`sam build && sam deploy`) |
-| バージョン発行(green作成) | AWS CLI (`aws lambda publish-version`) |
-| greenの検証(裏から直接invoke) | AWS CLI (`aws lambda invoke` にバージョン番号付きARNを指定) |
-| エイリアス切替(blue→green一括切替/ロールバック) | AWS CLI (`aws lambda update-alias`) |
+| バージョン発行(green作成) | AWS CLI (`aws lambda publish-version --function-name MyFunction`) |
+| greenの検証(裏から直接invoke) | AWS CLI (`aws lambda invoke --function-name MyFunction:<バージョン番号> ...`) |
+| エイリアス切替(blue→green一括切替/ロールバック) | AWS CLI (`aws lambda update-alias --function-name MyFunction --name live --function-version <バージョン番号>`) |
 
 SAMで宣言的に管理できる部分(関数本体のコード・設定)はSAMに任せ、「いつ切り替えるか」という判断を伴う操作はCLIで明示的に実行する。SAMのテンプレートには `AutoPublishAlias` や `DeploymentPreference` は設定しない。
 
 ### フロー
 
 1. `sam deploy` でLambda関数のコードを更新する(この時点ではエイリアスは一切変わらない。blueがそのまま本番で動き続ける)
-2. `aws lambda publish-version` で現在の `$LATEST` から新バージョン(green)を発行する。旧バージョン(blue)はそのまま残る
+2. `aws lambda publish-version --function-name MyFunction` で現在の `$LATEST` から新バージョン(green)を発行する。旧バージョン(blue)はそのまま残る
 3. greenのバージョン番号付きARN(例: `...:MyFunction:2`)を直接invokeし、期待する応答が返るか確認する。エイリアス経由ではない(= ルーティング上は本番トラフィックに影響しない)。ただし同時実行数(concurrency)の上限は関数単位で設定され、Reserved Concurrencyもバージョン/エイリアスごとではなく関数全体にかかる設定のため、greenへの直接invokeがblueの同時実行キャパシティと競合する可能性はある。アカウント/関数のconcurrencyに余裕がない場合は注意する(バージョン/エイリアス単位で分離したい場合はProvisioned Concurrencyをそのバージョン/エイリアスに割り当てる、または完全に分離したい場合は別のLambda関数にする)
 4. 問題がなければ `aws lambda update-alias --function-name MyFunction --name live --function-version <green>` で `live` エイリアスをblueからgreenへ一括切替する
 5. 問題が見つかった場合は `aws lambda update-alias --function-name MyFunction --name live --function-version <blue>` で即座に戻す(ロールバック)
