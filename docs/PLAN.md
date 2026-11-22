@@ -125,13 +125,13 @@ sequenceDiagram
 
 ## ランタイムについて
 
-Node.js 26を希望しているが、Lambdaの対応ランタイム一覧に存在するかは実装直前にAWSコンソール/ドキュメントで確認する。存在しない場合は、その時点でLambdaがサポートしている最新のNode.jsランタイムにフォールバックする。
+Node.js 26を希望していたが、2026-11時点ではAWS Lambdaのnodejs26.xはパブリックプレビュー(GA未確定、SLA/サポート対象外)のため、本検証では安定版の `nodejs22.x` を採用した。nodejs26.xがGAになったことを確認できれば、`template.yaml` の `Runtime` をそちらに切り替える。
 
 ## リポジトリ構成(予定)
 
 ```
 template.yaml              # SAM: 関数本体のみ(AutoPublishAlias/DeploymentPreferenceは使わない)
-samconfig.toml              # sam deploy のデフォルト設定
+samconfig.toml              # sam deploy --guided の初回実行で生成される(リポジトリには未同梱)
 src/main/index.mjs          # 本体Lambda。呼び出されたバージョンが分かる応答を返す
 scripts/deploy.sh            # sam build && sam deploy
 scripts/publish-version.sh   # aws lambda publish-version (green作成)
@@ -147,11 +147,11 @@ docs/RUNBOOK.md              # 初回構築〜デプロイ〜検証〜切替〜�
 
 - [x] 計画・設計をドキュメント化してコミットする(このドキュメント)
 - [x] システム構成図・デプロイ/切替イメージ図をドキュメントに追加する
-- [ ] Lambdaの対応ランタイム一覧でNode.jsの利用可能バージョンを確認する
+- [x] Lambdaの対応ランタイム一覧でNode.jsの利用可能バージョンを確認する(nodejs26.xはプレビューのためnodejs22.xを採用)
 - [ ] ローカルのAWS認証情報(プロファイル)がSAM/CLIから使えることを確認する
-- [ ] 本体Lambda(`src/main/index.mjs`)を実装する。バージョンが見分けられる応答を返すようにする
-- [ ] SAMテンプレート(`template.yaml`)を作成する(`AutoPublishAlias`/`DeploymentPreference`は使わない)
-- [ ] CLIスクリプト(`scripts/*.sh`)を作成する: deploy / publish-version / invoke-version / create-alias / switch-alias / show-alias
+- [x] 本体Lambda(`src/main/index.mjs`)を実装する。バージョンが見分けられる応答を返すようにする
+- [x] SAMテンプレート(`template.yaml`)を作成する(`AutoPublishAlias`/`DeploymentPreference`は使わない)。`sam validate --lint` / `sam build` / `sam local invoke` で確認済み
+- [x] CLIスクリプト(`scripts/*.sh`)を作成する: deploy / publish-version / invoke-version / create-alias / switch-alias / show-alias
 - [ ] 初回デプロイ(`sam deploy`)してLambda関数(`$LATEST`)を作成する
 - [ ] `publish-version` で最初のバージョン(blue=v1)を発行する
 - [ ] `create-alias` で `live` エイリアスを初回作成する(v1=blueを指す)。Alias経由の呼び出しを確認する
