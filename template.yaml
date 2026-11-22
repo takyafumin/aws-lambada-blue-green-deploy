@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Lambda Blue/Greenデプロイ検証用のスタック(docs/PLAN.md参照)。
+  Version/Aliasの管理はCodeDeployではなくAWS CLIで行うため、
+  AutoPublishAliasやDeploymentPreferenceは設定しない。
+
+Resources:
+  MainFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: lambda-blue-green-demo
+      CodeUri: src/main/
+      Handler: index.handler
+      # Node.js 26は2026-11時点でパブリックプレビュー(GA未確定)のため、
+      # まずは安定版のnodejs22.xを使う。GAを確認できたらnodejs26.xに変更する。
+      Runtime: nodejs22.x
+      Architectures:
+        - arm64
+      MemorySize: 128
+      Timeout: 10
+
+Outputs:
+  FunctionName:
+    Description: Lambda関数名(CLIスクリプトの引数に使う)
+    Value: !Ref MainFunction
+  FunctionArn:
+    Description: Lambda関数のARN($LATEST)
+    Value: !GetAtt MainFunction.Arn
