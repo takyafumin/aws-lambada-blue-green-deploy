@@ -3,7 +3,10 @@
 # Usage: scripts/invoke-version.sh <version-or-alias> [payload-json] [function-name]
 set -euo pipefail
 QUALIFIER="${1:?Usage: $0 <version-or-alias> [payload-json] [function-name]}"
-PAYLOAD="${2:-{}}"
+PAYLOAD="${2-}"
+if [ -z "$PAYLOAD" ]; then
+  PAYLOAD='{}'
+fi
 FUNCTION_NAME="${3:-${FUNCTION_NAME:-lambda-blue-green-demo}}"
 
 OUT_FILE="$(mktemp)"
