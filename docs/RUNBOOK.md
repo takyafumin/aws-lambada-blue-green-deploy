@@ -11,6 +11,10 @@
   - 確認: `aws sts get-caller-identity --profile <profile>`
   - 未設定の場合は `aws configure` または `aws sso login --profile <profile>` で設定する
 - 以降のコマンド例では `AWS_PROFILE` 環境変数でプロファイルを指定する想定(例: `AWS_PROFILE=takyafumin`)
+- `scripts/*.sh` はいずれも `--region` を指定せず、プロファイルに設定されたデフォルトリージョンに依存する。
+  本書のコマンド例はすべて `ap-northeast-1` を前提にしているため、使用するプロファイルの
+  デフォルトリージョンが `ap-northeast-1` になっていることを事前に確認する(`aws configure get region --profile <profile>`)。
+  異なるリージョンがデフォルトになっている場合は `AWS_DEFAULT_REGION=ap-northeast-1` を併せて指定する
 
 ## 1. 初回構築
 
@@ -49,7 +53,10 @@ AWS_PROFILE=<profile> scripts/invoke-version.sh live '{}' lambda-blue-green-demo
 AWS_PROFILE=<profile> scripts/deploy.sh
 ```
 
-- `samconfig.toml` が無い場合は上記「初回構築」と同様に `--stack-name` 等を明示指定する
+- `scripts/deploy.sh` は `sam build && sam deploy` を固定で実行するだけで、追加の引数を
+  `sam deploy` に渡すことはできない。`samconfig.toml` が無い場合(初回構築で `--guided` を
+  使わなかった場合)は、このスクリプトではなく「1. 初回構築」に記載した `sam deploy` の
+  コマンドをオプション付きで直接実行する
 - この時点では `live` エイリアスも既存のVersionも変化しない。本番(live経由)は旧バージョンのまま動き続ける
 
 ### 2-2. 新バージョン(green)を発行する
@@ -116,3 +123,9 @@ AWS_PROFILE=<profile> aws cloudformation delete-stack --stack-name lambda-blue-g
 - SAMが管理用に作成したS3バケット(`aws-sam-cli-managed-default-samclisourcebucket-*`)は
   他のSAMプロジェクトと共用されることがあるため、本検証のスタック削除だけでは削除されない。
   不要であれば別途確認の上で削除する
+- Lambdaが自動作成するCloudWatch Logsのロググループ(`/aws/lambda/lambda-blue-green-demo`)は
+  `template.yaml` で管理していない(CloudFormationリソースとして定義していない)ため、
+  スタック削除時には削除されない。完全に片付けたい場合は別途削除する
+  ```bash
+  AWS_PROFILE=<profile> aws logs delete-log-group --log-group-name /aws/lambda/lambda-blue-green-demo --region ap-northeast-1
+  ```
