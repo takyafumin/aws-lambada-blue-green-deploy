@@ -148,17 +148,17 @@ docs/RUNBOOK.md              # 初回構築〜デプロイ〜検証〜切替〜�
 - [x] 計画・設計をドキュメント化してコミットする(このドキュメント)
 - [x] システム構成図・デプロイ/切替イメージ図をドキュメントに追加する
 - [x] Lambdaの対応ランタイム一覧でNode.jsの利用可能バージョンを確認する(nodejs26.xはプレビューのためnodejs22.xを採用)
-- [ ] ローカルのAWS認証情報(プロファイル)がSAM/CLIから使えることを確認する
+- [x] ローカルのAWS認証情報(プロファイル)がSAM/CLIから使えることを確認する
 - [x] 本体Lambda(`src/main/index.mjs`)を実装する。バージョンが見分けられる応答を返すようにする
 - [x] SAMテンプレート(`template.yaml`)を作成する(`AutoPublishAlias`/`DeploymentPreference`は使わない)。`sam validate --lint` / `sam build` / `sam local invoke` で確認済み
 - [x] CLIスクリプト(`scripts/*.sh`)を作成する: deploy / publish-version / invoke-version / create-alias / switch-alias / show-alias
-- [ ] 初回デプロイ(`sam deploy`)してLambda関数(`$LATEST`)を作成する
-- [ ] `publish-version` で最初のバージョン(blue=v1)を発行する
-- [ ] `create-alias` で `live` エイリアスを初回作成する(v1=blueを指す)。Alias経由の呼び出しを確認する
-- [ ] コードを変更して2回目デプロイし、`publish-version` でgreen(v2)を発行する
-- [ ] greenを直接invokeして検証する
-- [ ] `switch-alias` でblue→greenへ切り替え、Alias経由の呼び出し結果がv2になることを確認する
-- [ ] エイリアス切替前後でリクエストが途切れないこと(ダウンタイムがないこと)を実際に確認する
-- [ ] ロールバック(green→blue)が機能することを確認する
-- [ ] 手順書(`docs/RUNBOOK.md`)をまとめる
-- [ ] 不要リソースの後片付け手順を確認する
+- [x] 初回デプロイ(`sam deploy`)してLambda関数(`$LATEST`)を作成する
+- [x] `publish-version` で最初のバージョン(blue=v1)を発行する
+- [x] `create-alias` で `live` エイリアスを初回作成する(v1=blueを指す)。Alias経由の呼び出しを確認する
+- [x] コードを変更して2回目デプロイし、`publish-version` でgreen(v2)を発行する
+- [x] greenを直接invokeして検証する
+- [x] `switch-alias` でblue→greenへ切り替え、Alias経由の呼び出し結果がv2になることを確認する
+- [x] エイリアス切替前後でリクエストが途切れないこと(ダウンタイムがないこと)を実際に確認する
+- [x] ロールバック(green→blue)が機能することを確認する
+- [x] 手順書(`docs/RUNBOOK.md`)をまとめる
+- [x] 不要リソースの後片付け手順を確認する
