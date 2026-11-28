@@ -1,4 +1,4 @@
-const MESSAGE = "Hello from blue (v1)";
+const MESSAGE = "Hello from green (v2)";
 
 export const handler = async () => {
   return {
